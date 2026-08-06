@@ -21,12 +21,12 @@ export default function Navbar() {
         </div>
 
         <nav className="hidden items-center gap-5 md:flex">
-          <a href="#" className="inline-flex items-center gap-2 text-sm font-medium text-white">
-            <span className="text-sky-300">•</span>
-            Overview
+          <a href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-white">
+            {/* <span className="text-sky-300">•</span> */}
+            Dashboard
           </a>
           
-          <a href="#" className="inline-flex items-center gap-2 text-sm font-medium text-slate-300 transition hover:text-white">
+          <a href="/clients" className="inline-flex items-center gap-2 text-sm font-medium text-slate-300 transition hover:text-white">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4 text-slate-400">
               <path d="M4 7h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               <path d="M7 20V10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />

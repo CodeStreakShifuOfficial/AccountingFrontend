@@ -1,0 +1,326 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  ArrowRight,
+  Building2,
+  Calendar,
+  CheckCircle,
+  ClipboardList,
+  FolderOpen,
+  Flag,
+  PlusCircle,
+  User,
+} from 'lucide-react'
+import { addPendingTask } from '../utils/taskStorage.js'
+
+const clients = ['ABC Corporation', 'XYZ Trading', 'Prime Holdings']
+const categories = [
+  'BIR Files',
+  'SEC Files',
+  'City Hall Files',
+  'Company Papers',
+  'Financial Statements',
+  'Payroll Documents',
+]
+const priorities = ['Critical', 'High', 'Medium', 'Low']
+const assignees = ['John', 'Maria', 'James', 'Owner']
+const statuses = ['Pending', 'In Progress', 'Completed']
+
+const todayTasks = [
+  {
+    client: 'ABC Corporation',
+    task: 'Review 1701 filing',
+    due: 'Today',
+    priority: 'High',
+  },
+  {
+    client: 'XYZ Trading',
+    task: 'Approve payroll package',
+    due: 'Tomorrow',
+    priority: 'Medium',
+  },
+  {
+    client: 'Prime Holdings',
+    task: 'Sign SEC submission',
+    due: 'Aug 15',
+    priority: 'Critical',
+  },
+]
+
+const priorityBadge = {
+  Critical: 'bg-red-100 text-red-700',
+  High: 'bg-orange-100 text-orange-700',
+  Medium: 'bg-amber-100 text-amber-700',
+  Low: 'bg-slate-100 text-slate-700',
+}
+
+export default function AddTask() {
+  const navigate = useNavigate()
+  const [client, setClient] = useState('')
+  const [category, setCategory] = useState('')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [priority, setPriority] = useState('')
+  const [dueDate, setDueDate] = useState('')
+  const [assignTo, setAssignTo] = useState('')
+  const [status, setStatus] = useState('Pending')
+  const [errors, setErrors] = useState({})
+  const [success, setSuccess] = useState(false)
+
+  const resetForm = () => {
+    setClient('')
+    setCategory('')
+    setTitle('')
+    setDescription('')
+    setPriority('')
+    setDueDate('')
+    setAssignTo('')
+    setStatus('Pending')
+    setErrors({})
+  }
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    const validationErrors = {}
+
+    if (!client) validationErrors.client = 'Client is required.'
+    if (!title.trim()) validationErrors.title = 'Task title is required.'
+    if (!priority) validationErrors.priority = 'Priority is required.'
+    if (!dueDate) validationErrors.dueDate = 'Due date is required.'
+
+    setErrors(validationErrors)
+
+    if (Object.keys(validationErrors).length === 0) {
+      addPendingTask({ client, title, category, dueDate, priority, assignTo, status })
+      setSuccess(true)
+      resetForm()
+      window.setTimeout(() => setSuccess(false), 4000)
+    }
+  }
+
+  const handleClear = () => {
+    resetForm()
+    setSuccess(false)
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-md shadow-slate-200/50 transition-all duration-300 sm:p-8">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-slate-700">
+                <PlusCircle className="h-5 w-5 text-sky-600" />
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-600">Add New Task</p>
+              </div>
+              <h1 className="mt-3 text-3xl font-semibold text-slate-950">Create and assign a task for a client.</h1>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 shadow-sm">
+              <ClipboardList className="h-4 w-4 text-slate-500" />
+              Quick task creation
+            </div>
+          </div>
+
+          <div className="mt-8 grid gap-6 xl:grid-cols-[1.5fr_0.9fr]">
+            <form onSubmit={handleSubmit} className="space-y-6 rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm shadow-slate-200/40">
+              {success ? (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-2 font-semibold">
+                      <CheckCircle className="h-4 w-4" />
+                      Task added successfully.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/pending')}
+                      className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition duration-300 hover:bg-emerald-500"
+                    >
+                      View pending tasks
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Client</label>
+                  <select
+                    value={client}
+                    onChange={(event) => setClient(event.target.value)}
+                    className={`mt-2 w-full rounded-2xl border px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200 ${errors.client ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}
+                  >
+                    <option value="">Select client</option>
+                    {clients.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.client ? <p className="mt-2 text-sm text-rose-600">{errors.client}</p> : null}
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Document Category</label>
+                  <select
+                    value={category}
+                    onChange={(event) => setCategory(event.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
+                  >
+                    <option value="">Select category</option>
+                    {categories.map((group) => (
+                      <option key={group} value={group}>
+                        {group}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-slate-700">Task Title</label>
+                  <input
+                    type="text"
+                    value={title}
+                    onChange={(event) => setTitle(event.target.value)}
+                    placeholder="Submit BIR Form 1701"
+                    className={`mt-2 w-full rounded-2xl border px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200 ${errors.title ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}
+                  />
+                  {errors.title ? <p className="mt-2 text-sm text-rose-600">{errors.title}</p> : null}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-slate-700">Description</label>
+                  <textarea
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    placeholder="Add notes or instructions..."
+                    rows={4}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Priority</label>
+                  <select
+                    value={priority}
+                    onChange={(event) => setPriority(event.target.value)}
+                    className={`mt-2 w-full rounded-2xl border px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200 ${errors.priority ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}
+                  >
+                    <option value="">Select priority</option>
+                    {priorities.map((level) => (
+                      <option key={level} value={level}>
+                        {level}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.priority ? <p className="mt-2 text-sm text-rose-600">{errors.priority}</p> : null}
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Due Date</label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(event) => setDueDate(event.target.value)}
+                    className={`mt-2 w-full rounded-2xl border px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200 ${errors.dueDate ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}
+                  />
+                  {errors.dueDate ? <p className="mt-2 text-sm text-rose-600">{errors.dueDate}</p> : null}
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Assign To</label>
+                  <select
+                    value={assignTo}
+                    onChange={(event) => setAssignTo(event.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
+                  >
+                    <option value="">Select assignee</option>
+                    {assignees.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Status</label>
+                  <select
+                    value={status}
+                    onChange={(event) => setStatus(event.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
+                  >
+                    {statuses.map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-slate-500">Use this form to add a task quickly without leaving the dashboard.</div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition duration-300 hover:border-slate-400 hover:bg-slate-50"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white transition duration-300 hover:bg-sky-500"
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    Save Task
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <aside className="space-y-5 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/40">
+              <div className="flex items-center gap-3 text-slate-900">
+                <FolderOpen className="h-5 w-5 text-sky-600" />
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Today's Tasks</p>
+                  <p className="mt-1 text-sm text-slate-600">Quick overview of top work items.</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {todayTasks.map((task) => (
+                  <div key={task.task} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{task.client}</p>
+                        <p className="mt-1 text-sm text-slate-600">{task.task}</p>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${priorityBadge[task.priority]}`}>
+                        {task.priority}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+                      <Calendar className="h-4 w-4 text-slate-400" />
+                      <span>{task.due}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition duration-300 hover:bg-slate-800"
+              >
+                <ArrowRight className="h-4 w-4" />
+                View all tasks
+              </button>
+            </aside>
+          </div>
+        </section>
+      </div>
+    </div>
+  )
+}

@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Urgent from './Urgent.jsx'
+import { loadPendingTasks } from '../utils/taskStorage.js'
 import {
   AlertCircle,
   AlertTriangle,
@@ -48,30 +51,6 @@ const statisticCards = [
     description: 'Require immediate attention',
     icon: AlertTriangle,
     color: 'text-red-600 bg-red-100',
-  },
-]
-
-const pendingTasks = [
-  {
-    task: 'Submit BIR Forms',
-    client: 'ABC Corporation',
-    due: 'Today',
-    priority: 'High',
-    status: 'Pending',
-  },
-  {
-    task: 'Payroll Processing',
-    client: 'XYZ Trading',
-    due: 'Tomorrow',
-    priority: 'Medium',
-    status: 'Pending',
-  },
-  {
-    task: 'Annual Financial Report',
-    client: 'Prime Holdings',
-    due: 'Aug 15',
-    priority: 'Low',
-    status: 'In Progress',
   },
 ]
 
@@ -131,15 +110,53 @@ const statusStyles = {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const [pendingTasks, setPendingTasks] = useState([])
+
+  useEffect(() => {
+    setPendingTasks(loadPendingTasks())
+  }, [])
 
   const handleClientsCardAction = () => {
     navigate('/clients')
+  }
+
+  const handlePendingCardAction = () => {
+    navigate('/pending')
+  }
+
+  const handleUrgentCardAction = () => {
+    navigate('/urgent')
+  }
+
+  const handleAddTaskCardAction = () => {
+    navigate('/add-task')
   }
 
   const handleClientsCardKeyDown = (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       handleClientsCardAction()
+    }
+  }
+
+  const handlePendingCardKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      handlePendingCardAction()
+    }
+  }
+
+  const handleUrgentCardKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      handleUrgentCardAction()
+    }
+  }
+
+  const handleAddTaskCardKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      handleAddTaskCardAction()
     }
   }
 
@@ -168,28 +185,70 @@ export default function Dashboard() {
           {statisticCards.map((card) => {
             const Icon = card.icon
             const isClientsCard = card.title === 'Total Clients'
+            const isPendingCard = card.title === 'Pending'
+            const isUrgentCard = card.title === 'Urgent Matters'
+            const isAddTaskCard = card.title === 'Add Task'
+            const isInteractiveCard = isClientsCard || isPendingCard || isUrgentCard || isAddTaskCard
 
             return (
               <article
                 key={card.title}
-                role={isClientsCard ? 'button' : undefined}
-                tabIndex={isClientsCard ? 0 : undefined}
-                onClick={isClientsCard ? handleClientsCardAction : undefined}
-                onKeyDown={isClientsCard ? handleClientsCardKeyDown : undefined}
-                aria-label={isClientsCard ? 'View clients page' : undefined}
-                className={`group rounded-3xl bg-white p-6 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${isClientsCard ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 hover:scale-[1.01] hover:shadow-xl' : ''}`}
+                role={isInteractiveCard ? 'button' : undefined}
+                tabIndex={isInteractiveCard ? 0 : undefined}
+                onClick={
+                  isClientsCard
+                    ? handleClientsCardAction
+                    : isPendingCard
+                    ? handlePendingCardAction
+                    : isUrgentCard
+                    ? handleUrgentCardAction
+                    : isAddTaskCard
+                    ? handleAddTaskCardAction
+                    : undefined
+                }
+                onKeyDown={
+                  isClientsCard
+                    ? handleClientsCardKeyDown
+                    : isPendingCard
+                    ? handlePendingCardKeyDown
+                    : isUrgentCard
+                    ? handleUrgentCardKeyDown
+                    : isAddTaskCard
+                    ? handleAddTaskCardKeyDown
+                    : undefined
+                }
+                aria-label={
+                  isClientsCard
+                    ? 'View clients page'
+                    : isPendingCard
+                    ? 'View pending tasks page'
+                    : isUrgentCard
+                    ? 'View urgent matters page'
+                    : isAddTaskCard
+                    ? 'Create a new task'
+                    : undefined
+                }
+                className={`group rounded-3xl bg-white p-6 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
+                  isInteractiveCard ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 hover:scale-[1.01] hover:shadow-xl' : ''
+                }`}
               >
                 <div className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${card.color}`}>
                   <Icon className="h-6 w-6" />
                 </div>
                 <p className="mt-6 text-sm font-medium text-slate-500">{card.title}</p>
                 {card.button ? (
-                  <button className="mt-5 inline-flex items-center justify-center rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white transition duration-300 hover:bg-sky-500">
+                  <button
+                    type="button"
+                    onClick={handleAddTaskCardAction}
+                    className="mt-5 inline-flex items-center justify-center rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white transition duration-300 hover:bg-sky-500"
+                  >
                     <PlusCircle className="mr-2 h-4 w-4" />
                     New Task
                   </button>
                 ) : (
-                  <p className="mt-4 text-3xl font-semibold text-slate-950">{card.value}</p>
+                  <p className="mt-4 text-3xl font-semibold text-slate-950">
+                    {isPendingCard ? pendingTasks.length : card.value}
+                  </p>
                 )}
                 <p className="mt-3 text-sm text-slate-500">{card.description}</p>
               </article>
@@ -226,10 +285,10 @@ export default function Dashboard() {
                     <tr key={item.task} className="rounded-3xl bg-slate-50 shadow-sm">
                       <td className="px-4 py-4 align-middle text-sm text-slate-700">{item.task}</td>
                       <td className="px-4 py-4 align-middle text-sm text-slate-600">{item.client}</td>
-                      <td className="px-4 py-4 align-middle text-sm text-slate-600">{item.due}</td>
+                      <td className="px-4 py-4 align-middle text-sm text-slate-600">{item.dueDate}</td>
                       <td className="px-4 py-4 align-middle">
-                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${priorityStyles[item.priority]}`}>
-                          {item.priority}
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${priorityStyles[item.priority || 'Medium']}`}>
+                          {item.priority || 'Medium'}
                         </span>
                       </td>
                       <td className="px-4 py-4 align-middle">
@@ -330,6 +389,8 @@ export default function Dashboard() {
             </table>
           </div>
         </section>
+
+        <Urgent compact />
       </div>
     </div>
   )

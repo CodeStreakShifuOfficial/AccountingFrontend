@@ -7,6 +7,9 @@ import Dashboard from './pages/Dashboard.jsx'
 import Clients from './pages/Clients.jsx'
 import DocumentCategory from './pages/DocumentCategory.jsx'
 import DocumentList from './pages/DocumentList.jsx'
+import Pending from './pages/Pending.jsx'
+import Urgent from './pages/Urgent.jsx'
+import AddTask from './pages/AddTask.jsx'
 import './App.css'
 
 function AppContent() {
@@ -31,6 +34,9 @@ function AppContent() {
           <Route path="/clients" element={<Clients />} />
           <Route path="/documents/:clientId/:category" element={<DocumentCategory />} />
           <Route path="/documents/:clientId/:category/list" element={<DocumentList />} />
+          <Route path="/urgent" element={<Urgent />} />
+          <Route path="/pending" element={<Pending />} />
+          <Route path="/add-task" element={<AddTask />} />
           <Route path="/login" element={<Login onForgotPassword={() => navigate('/forgot')} onLoginSuccess={() => navigate('/dashboard')} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
