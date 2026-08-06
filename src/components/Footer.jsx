@@ -7,7 +7,7 @@ export default function Footer() {
         <div className="max-w-xl">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-slate-900/90 ring-1 ring-slate-700/80 text-sky-300">
-              <span className="text-lg font-semibold">A</span>
+              <img src={Logo} alt="Amarillo Accounting Logo" className="h-80 w-80 object-contain rounded-4xl" />
             </div>
             <div>
               <p className="text-lg font-semibold text-white">Amarillo Accounting</p>
@@ -27,9 +27,7 @@ export default function Footer() {
               <li>
                 <a href="#" className="transition hover:text-white">Overview</a>
               </li>
-              <li>
-                <a href="#" className="transition hover:text-white">Security</a>
-              </li>
+              
               <li>
                 <a href="#" className="transition hover:text-white">Clients</a>
               </li>

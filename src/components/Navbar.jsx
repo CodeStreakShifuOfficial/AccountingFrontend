@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import Logo from '../assets/logo.png'
 
+import{CircleUser} from 'lucide-react'
+
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -82,12 +84,12 @@ export default function Navbar() {
               aria-haspopup="true"
             >
               <span className="inline-flex h-9 w-5 items-center justify-center text-slate-200">
-                <span className="text-md font-semibold">📞</span>
+                <CircleUser className="text-md font-semibold"/>
               </span>
-              <span className="hidden sm:inline">Contact Us</span>
+              <span className="hidden sm:inline">Your Name</span>
             </button>
 
-            {/* {profileOpen ? (
+             {profileOpen ? (
               <div className="absolute right-0 mt-3 w-56 rounded-3xl border border-white/10 bg-slate-950/95 p-3 shadow-2xl shadow-slate-950/30 backdrop-blur-xl">
                 <a href="#" className="block rounded-2xl px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800">
                   Profile
@@ -99,7 +101,7 @@ export default function Navbar() {
                   Sign out
                 </a>
               </div>
-            ) : null} */}
+            ) : null} 
           </div>
         </div>
 

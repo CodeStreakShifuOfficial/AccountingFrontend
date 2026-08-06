@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
   AlertTriangle,
@@ -129,6 +130,19 @@ const statusStyles = {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate()
+
+  const handleClientsCardAction = () => {
+    navigate('/clients')
+  }
+
+  const handleClientsCardKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      handleClientsCardAction()
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -136,7 +150,7 @@ export default function Dashboard() {
           <div className="max-w-3xl space-y-4">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-sky-600">Accounting Document Hub</p>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-              Welcome back, John!
+              Welcome back, Boss!
             </h1>
             <p className="max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
               You currently manage 152 clients and 8,431 secured documents.
@@ -153,10 +167,17 @@ export default function Dashboard() {
         <section className="grid gap-6 xl:grid-cols-[repeat(5,minmax(0,1fr))]">
           {statisticCards.map((card) => {
             const Icon = card.icon
+            const isClientsCard = card.title === 'Total Clients'
+
             return (
               <article
                 key={card.title}
-                className="group rounded-3xl bg-white p-6 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                role={isClientsCard ? 'button' : undefined}
+                tabIndex={isClientsCard ? 0 : undefined}
+                onClick={isClientsCard ? handleClientsCardAction : undefined}
+                onKeyDown={isClientsCard ? handleClientsCardKeyDown : undefined}
+                aria-label={isClientsCard ? 'View clients page' : undefined}
+                className={`group rounded-3xl bg-white p-6 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${isClientsCard ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 hover:scale-[1.01] hover:shadow-xl' : ''}`}
               >
                 <div className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${card.color}`}>
                   <Icon className="h-6 w-6" />
