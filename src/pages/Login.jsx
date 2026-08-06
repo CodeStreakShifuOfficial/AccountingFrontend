@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import Logo from '../assets/logo.png'
 
-export default function Login() {
-  const [email, setEmail] = useState('')
+export default function Login({ onForgotPassword, onLoginSuccess }) {
+  const [Username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
@@ -11,8 +11,8 @@ export default function Login() {
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    if (!email.trim() || !password.trim()) {
-      setError('Please enter both email and password.')
+    if (!Username.trim() || !password.trim()) {
+      setError('Please enter both username and password.')
       setSubmitted(false)
       return
     }
@@ -22,8 +22,11 @@ export default function Login() {
     setTimeout(() => {
       setSubmitted(true)
       setIsSubmitting(false)
+      if (onLoginSuccess) {
+        onLoginSuccess()
+      }
     }, 450)
-    console.log('Login submitted:', { email, password, rememberMe })
+    console.log('Login submitted:', { Username, password, rememberMe })
   }
 
   return (
@@ -47,7 +50,7 @@ export default function Login() {
             <div className="mt-10 grid gap-4 sm:grid-cols-2">
               <div className="rounded-3xl border border-white/5 bg-slate-950/80 p-6 shadow-sm shadow-slate-950/10">
                 <p className="text-sm uppercase tracking-[0.25em] text-slate-400">Trusted by</p>
-                <p className="mt-3 text-2xl font-semibold text-white">100+ firms</p>
+                <p className="mt-3 text-2xl font-semibold text-white">100+ Business Owners</p>
               </div>
               <div className="rounded-3xl border border-white/5 bg-slate-950/80 p-6 shadow-sm shadow-slate-950/10">
                 <p className="text-sm uppercase tracking-[0.25em] text-slate-400">Secure</p>
@@ -67,8 +70,8 @@ export default function Login() {
           <aside className="rounded-[2rem] border border-slate-700/80 bg-slate-950/95 p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition duration-500 ease-out sm:p-10">
             <div className="mb-8 flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="flex h-20 w-20 items-center justify-center rounded-3xl">
-                  <img src={Logo} alt="Amarillo Accounting logo" className="h-80 w-80 object-contain" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-900/90 ring-1 ring-slate-700/80">
+                  <img src={Logo} alt="Amarillo Accounting logo" className="h-10 w-10 object-contain" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.35em] text-sky-300">
@@ -93,8 +96,8 @@ export default function Login() {
 
             <form className="mt-8 space-y-6" onSubmit={handleSubmit} noValidate>
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-slate-300">
-                  Email address
+                <label htmlFor="Username" className="block text-sm font-medium text-slate-300">
+                  Username  
                 </label>
                 <div className="relative mt-3">
                   <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-500">
@@ -104,14 +107,14 @@ export default function Login() {
                     </svg>
                   </span>
                   <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
+                    id="Username"
+                    name="Username"
+                    type="text"
+                    autoComplete="Username"
+                    value={Username}
+                    onChange={(event) => setUsername(event.target.value)}
                     className="w-full rounded-3xl border border-slate-700 bg-slate-900/90 px-5 py-4 pl-14 text-white placeholder:text-slate-500 shadow-sm shadow-slate-950/20 transition duration-300 ease-out focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
-                    placeholder="you@company.com"
+                    placeholder="Username"
                   />
                 </div>
               </div>
@@ -150,9 +153,14 @@ export default function Login() {
                   />
                   Remember me
                 </label>
-                <a href="#" className="font-medium text-sky-300 transition hover:text-sky-200">
+                <button
+                  type="button"
+                  onClick={onForgotPassword}
+                  className="font-medium text-sky-300 transition hover:text-sky-200"
+                  aria-label="Go to forgot password page"
+                >
                   Forgot password?
-                </a>
+                </button>
               </div>
 
               {error ? (
@@ -180,7 +188,7 @@ export default function Login() {
               <div className="mt-7 rounded-3xl border border-slate-700 bg-slate-900/90 p-5 text-sm text-slate-200 shadow-sm shadow-slate-950/20">
                 <p className="font-medium text-white">Login submitted successfully!</p>
                 <p className="mt-2 text-slate-400">
-                  Email: <span className="text-slate-100">{email}</span>
+                  Username: <span className="text-slate-100">{Username}</span>
                 </p>
               </div>
             ) : null}

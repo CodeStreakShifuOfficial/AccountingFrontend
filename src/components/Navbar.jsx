@@ -13,7 +13,7 @@ export default function Navbar() {
             <img src={Logo} alt="Amarillo Accounting Logo" className="h-80 w-80 object-contain rounded-4xl" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-white">Amarillo Accounting</p>
+            <p className="text-lg font-semibold text-white">Amarillo Accounting</p>
             <p className="text-xs text-slate-400">Secure financial portal</p>
           </div>
         </div>
@@ -23,14 +23,7 @@ export default function Navbar() {
             <span className="text-sky-300">•</span>
             Overview
           </a>
-          <a href="#" className="inline-flex items-center gap-2 text-sm font-medium text-slate-300 transition hover:text-white">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4 text-slate-400">
-              <path d="M4 12h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              <path d="M4 6h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              <path d="M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-            Security
-          </a>
+          
           <a href="#" className="inline-flex items-center gap-2 text-sm font-medium text-slate-300 transition hover:text-white">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4 text-slate-400">
               <path d="M4 7h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -88,13 +81,13 @@ export default function Navbar() {
               aria-expanded={profileOpen}
               aria-haspopup="true"
             >
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-slate-200">
-                <span className="text-sm font-semibold">📞</span>
+              <span className="inline-flex h-9 w-5 items-center justify-center text-slate-200">
+                <span className="text-md font-semibold">📞</span>
               </span>
               <span className="hidden sm:inline">Contact Us</span>
             </button>
 
-            {profileOpen ? (
+            {/* {profileOpen ? (
               <div className="absolute right-0 mt-3 w-56 rounded-3xl border border-white/10 bg-slate-950/95 p-3 shadow-2xl shadow-slate-950/30 backdrop-blur-xl">
                 <a href="#" className="block rounded-2xl px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800">
                   Profile
@@ -106,7 +99,7 @@ export default function Navbar() {
                   Sign out
                 </a>
               </div>
-            ) : null}
+            ) : null} */}
           </div>
         </div>
 

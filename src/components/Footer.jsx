@@ -1,3 +1,5 @@
+import Logo from '../assets/logo.png'
+
 export default function Footer() {
   return (
     <footer className="border-t border-white/10 bg-slate-950/95 px-4 py-10 text-slate-400 backdrop-blur-xl sm:px-6">
