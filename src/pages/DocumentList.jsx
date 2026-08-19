@@ -9,6 +9,7 @@ import {
   Eye,
   FileText,
   FolderOpen,
+  Pencil,
   Search,
   Upload,
   Trash2,
@@ -54,8 +55,15 @@ export default function DocumentList() {
   const [showFolderModal, setShowFolderModal] = useState(false)
   const [fileInputKey, setFileInputKey] = useState(0)
   const [operationError, setOperationError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [processingDocumentId, setProcessingDocumentId] = useState(null)
+  const [processingAction, setProcessingAction] = useState('')
+  const [documentToRename, setDocumentToRename] = useState(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [documentToDelete, setDocumentToDelete] = useState(null)
   const user = getStoredUser()
-  const canDownload = ['OWNER', 'ACCOUNT'].includes(String(user?.role || '').toUpperCase())
+  const userRole = String(user?.role || '').toUpperCase()
+  const canDelete = ['OWNER', 'ACCOUNTANT', 'ACCOUNT'].includes(userRole)
 
   const loadData = async (keepSelected = true) => {
     setIsLoading(true)
@@ -175,12 +183,139 @@ export default function DocumentList() {
     }
   }
 
-  const handleViewFile = () => {
-    setOperationError('File preview is not available because the backend has no document view endpoint.')
+  const getDocumentBlob = async (documentId, endpoint) => {
+    const response = await api.get(`/documents/${documentId}/${endpoint}`, {
+      responseType: 'blob',
+    })
+
+    return {
+      blob: new Blob([response.data], {
+        type: response.headers['content-type'] || 'application/octet-stream',
+      }),
+      filename: response.headers['content-disposition']?.match(/filename="?([^";]+)"?/i)?.[1],
+    }
   }
 
-  const handleDownloadFile = () => {
-    setOperationError('File download is not available because the backend has no document download endpoint.')
+  const isPreviewable = (file) => {
+    const fileType = String(file.fileType || '').toLowerCase()
+    const filename = String(file.originalFilename || '').toLowerCase()
+
+    return (
+      fileType === 'application/pdf' ||
+      fileType.startsWith('image/') ||
+      fileType.startsWith('text/') ||
+      ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.txt', '.svg'].some((extension) =>
+        filename.endsWith(extension),
+      )
+    )
+  }
+
+  const runDocumentAction = async (documentId, action, callback) => {
+    setProcessingDocumentId(documentId)
+    setProcessingAction(action)
+    setOperationError('')
+    setSuccessMessage('')
+
+    try {
+      await callback()
+    } catch (requestError) {
+      setOperationError(
+        requestError.response?.data?.message ||
+          `Unable to ${action.toLowerCase()} this document.`,
+      )
+    } finally {
+      setProcessingDocumentId(null)
+      setProcessingAction('')
+    }
+  }
+
+  const handleViewFile = (file) => {
+    if (!isPreviewable(file)) {
+      setOperationError('This file type cannot be previewed in the browser. Use Download to open it.')
+      return
+    }
+
+    const previewWindow = window.open('', '_blank', 'noopener,noreferrer')
+
+    if (!previewWindow) {
+      setOperationError('Please allow pop-ups to preview this document.')
+      return
+    }
+
+    runDocumentAction(file.id, 'Viewing', async () => {
+      try {
+        const { blob } = await getDocumentBlob(file.id, 'content')
+        const url = URL.createObjectURL(blob)
+        previewWindow.location.href = url
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000)
+      } catch (requestError) {
+        previewWindow.close()
+        throw requestError
+      }
+    })
+  }
+
+  const handleDownloadFile = (file) => {
+    runDocumentAction(file.id, 'Downloading', async () => {
+      const { blob } = await getDocumentBlob(file.id, 'download')
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = file.originalFilename || 'document'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setSuccessMessage('Document downloaded successfully.')
+    })
+  }
+
+  const getFileExtension = (filename = '') => {
+    const lastDot = filename.lastIndexOf('.')
+    return lastDot > 0 ? filename.slice(lastDot) : ''
+  }
+
+  const handleRenameDocument = async (event) => {
+    event.preventDefault()
+    const trimmedName = renameValue.trim()
+    const extension = getFileExtension(documentToRename?.originalFilename)
+
+    if (!trimmedName) {
+      setOperationError('Filename is required.')
+      return
+    }
+
+    if (/[\\/:*?"<>|]/.test(trimmedName)) {
+      setOperationError('Filename contains invalid characters.')
+      return
+    }
+
+    const nextFilename = extension && !trimmedName.toLowerCase().endsWith(extension.toLowerCase())
+      ? `${trimmedName}${extension}`
+      : trimmedName
+
+    await runDocumentAction(documentToRename.id, 'Renaming', async () => {
+      const response = await api.put(`/documents/${documentToRename.id}/rename`, null, {
+        params: { filename: nextFilename },
+      })
+      setDocuments((currentDocuments) => currentDocuments.map((document) => (
+        document.id === documentToRename.id
+          ? { ...document, ...response.data, originalFilename: response.data.originalFilename || nextFilename }
+          : document
+      )))
+      setDocumentToRename(null)
+      setRenameValue('')
+      setSuccessMessage('Document renamed successfully.')
+    })
+  }
+
+  const handleDeleteDocument = () => {
+    runDocumentAction(documentToDelete.id, 'Deleting', async () => {
+      await api.delete(`/documents/${documentToDelete.id}`)
+      setDocuments((currentDocuments) => currentDocuments.filter((document) => document.id !== documentToDelete.id))
+      setDocumentToDelete(null)
+      setSuccessMessage('Document deleted successfully.')
+    })
   }
 
   return (
@@ -337,11 +472,17 @@ export default function DocumentList() {
                     </td>
                     <td className="px-4 py-4 align-middle">
                       <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={handleViewFile} className="rounded-2xl border border-slate-200 bg-white p-2 text-slate-600 transition duration-300 hover:border-sky-300 hover:text-sky-600" aria-label={`View ${file.originalFilename || 'file'}`}>
+                        <button type="button" title="View document" onClick={() => handleViewFile(file)} disabled={processingDocumentId === file.id} className="rounded-2xl border border-slate-200 bg-white p-2 text-slate-600 transition duration-300 hover:border-sky-300 hover:text-sky-600 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`View ${file.originalFilename || 'file'}`}>
                           <Eye className="h-4 w-4" />
                         </button>
-                        {canDownload ? <button type="button" onClick={handleDownloadFile} className="rounded-2xl border border-slate-200 bg-white p-2 text-slate-600 transition duration-300 hover:border-sky-300 hover:text-sky-600" aria-label={`Download ${file.originalFilename || 'file'}`}>
+                        <button type="button" title="Download document" onClick={() => handleDownloadFile(file)} disabled={processingDocumentId === file.id} className="rounded-2xl border border-slate-200 bg-white p-2 text-slate-600 transition duration-300 hover:border-sky-300 hover:text-sky-600 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Download ${file.originalFilename || 'file'}`}>
                           <Download className="h-4 w-4" />
+                        </button>
+                        <button type="button" title="Rename document" onClick={() => { setOperationError(''); setSuccessMessage(''); setDocumentToRename(file); setRenameValue(file.originalFilename || '') }} disabled={processingDocumentId === file.id} className="rounded-2xl border border-sky-200 bg-sky-50 p-2 text-sky-700 transition duration-300 hover:border-sky-300 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Rename ${file.originalFilename || 'file'}`}>
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        {canDelete ? <button type="button" title="Delete document" onClick={() => { setOperationError(''); setSuccessMessage(''); setDocumentToDelete(file) }} disabled={processingDocumentId === file.id} className="rounded-2xl border border-rose-200 bg-rose-50 p-2 text-rose-600 transition duration-300 hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Delete ${file.originalFilename || 'file'}`}>
+                          <Trash2 className="h-4 w-4" />
                         </button> : null}
                       </div>
                     </td>
@@ -350,8 +491,80 @@ export default function DocumentList() {
               </tbody>
             </table>
           </div>
+
+          {successMessage ? (
+            <p role="status" className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              {successMessage}
+            </p>
+          ) : null}
         </section>
       </div>
+
+      {documentToRename ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rename-document-title"
+            onSubmit={handleRenameDocument}
+            className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
+          >
+            <h2 id="rename-document-title" className="text-xl font-semibold text-slate-950">
+              Rename Document
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              The existing file extension will be preserved automatically.
+            </p>
+            <label htmlFor="document-name" className="mt-5 block text-sm font-medium text-slate-700">
+              Filename
+            </label>
+            <input
+              id="document-name"
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+              autoFocus
+              disabled={processingDocumentId === documentToRename.id}
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-200 disabled:opacity-60"
+            />
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setDocumentToRename(null)} disabled={processingDocumentId === documentToRename.id} className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                Cancel
+              </button>
+              <button type="submit" disabled={processingDocumentId === documentToRename.id} className="rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50">
+                {processingDocumentId === documentToRename.id && processingAction === 'Renaming' ? 'Renaming...' : 'Rename'}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {documentToDelete ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-document-title"
+            className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
+          >
+            <h2 id="delete-document-title" className="text-xl font-semibold text-slate-950">
+              Delete Document?
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Are you sure you want to permanently delete{' '}
+              <span className="font-semibold text-slate-900">&quot;{documentToDelete.originalFilename || 'this document'}&quot;</span>?
+            </p>
+            <p className="mt-2 text-sm text-rose-600">This action cannot be undone.</p>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setDocumentToDelete(null)} disabled={processingDocumentId === documentToDelete.id} className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                Cancel
+              </button>
+              <button type="button" onClick={handleDeleteDocument} disabled={processingDocumentId === documentToDelete.id} className="rounded-2xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50">
+                {processingDocumentId === documentToDelete.id && processingAction === 'Deleting' ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

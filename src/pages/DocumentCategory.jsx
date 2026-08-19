@@ -467,10 +467,10 @@ export default function DocumentCategory() {
             clientData.address ||
             'Not available',
 
-          dateOfBirth:
-            clientData.dateOfBirth
+          birthdate:
+            clientData.birthdate
               ? formatDate(
-                  clientData.dateOfBirth
+                  clientData.birthdate
                 )
               : 'Not available',
 
@@ -1167,7 +1167,7 @@ export default function DocumentCategory() {
                   </p>
 
                   <p className="mt-2 font-semibold text-slate-900">
-                    {client.dateOfBirth}
+                    {client.birthdate}
                   </p>
                 </div>
 
