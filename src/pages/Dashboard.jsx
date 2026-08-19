@@ -25,7 +25,7 @@ const statisticCards = [
   },
   {
     title: 'Total Clients',
-    description: 'Active clients',
+    description: 'All clients',
     icon: Users,
     color: 'text-emerald-600 bg-emerald-100',
   },
@@ -144,9 +144,9 @@ const formatTaskDate = (value) => {
 const normalizeTask = (task) => ({
   ...task,
   task: task.title || task.task || 'Untitled task',
-  client: task.client?.companyName || task.client?.name || task.client || 'No client',
+  client: task.client?.companyName || task.client?.name || (typeof task.client === 'string' ? task.client : 'No client'),
   clientId: task.client?.id,
-  assignedTo: task.assignedTo?.username || task.assignedTo?.firstName || task.assignedTo || 'Unassigned',
+  assignedTo: task.assignedTo?.username || [task.assignedTo?.firstName, task.assignedTo?.lastName].filter(Boolean).join(' ') || (typeof task.assignedTo === 'string' ? task.assignedTo : 'Unassigned'),
   assignedToId: task.assignedTo?.id,
   dueDate: task.dueDate || 'Not set',
   priority: String(task.priority || 'MEDIUM').toLowerCase().replace(/^./, (letter) => letter.toUpperCase()),
@@ -156,8 +156,10 @@ const normalizeTask = (task) => ({
 export default function Dashboard() {
   const navigate = useNavigate()
   const [allTasks, setAllTasks] = useState([])
-  const [totalClients, setTotalClients] = useState(0)
-  const [totalDocuments, setTotalDocuments] = useState(0)
+  const [totalClients, setTotalClients] = useState(null)
+  const [totalDocuments, setTotalDocuments] = useState(null)
+  const [isStatisticsLoading, setIsStatisticsLoading] = useState(true)
+  const [statisticsError, setStatisticsError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedTask, setSelectedTask] = useState(null)
@@ -177,23 +179,46 @@ export default function Dashboard() {
   }, [])
 
   const refreshStatistics = useCallback(async () => {
+    setIsStatisticsLoading(true)
+    setStatisticsError('')
+
     try {
       const clientsResponse = await api.get('/clients')
       const clients = Array.isArray(clientsResponse.data) ? clientsResponse.data : []
       setTotalClients(clients.length)
 
-      const documentsByClient = await Promise.all(
+      const documentResults = await Promise.allSettled(
         clients.map(async (client) => {
           const documentsResponse = await api.get(`/clients/${client.id}/documents`)
           return Array.isArray(documentsResponse.data) ? documentsResponse.data.length : 0
         }),
       )
 
-      setTotalDocuments(documentsByClient.reduce((total, count) => total + count, 0))
+      const hasDocumentFailure = documentResults.some(
+        (result) => result.status === 'rejected',
+      )
+
+      if (hasDocumentFailure) {
+        setTotalDocuments(null)
+        setStatisticsError('Some document statistics could not be loaded.')
+      } else {
+        setTotalDocuments(
+          documentResults.reduce(
+            (total, result) => total + result.value,
+            0,
+          ),
+        )
+      }
     } catch (requestError) {
       console.error('Failed to fetch dashboard statistics:', requestError)
-      setTotalClients(0)
-      setTotalDocuments(0)
+      setTotalClients(null)
+      setTotalDocuments(null)
+      setStatisticsError(
+        requestError.response?.data?.message ||
+          'Unable to load dashboard statistics.',
+      )
+    } finally {
+      setIsStatisticsLoading(false)
     }
   }, [])
 
@@ -247,7 +272,6 @@ export default function Dashboard() {
       task: task.task || '',
       client: task.client || '',
       dueDate: task.dueDate || '',
-      priority: task.priority || 'Medium',
       status: task.status || 'Pending',
       description: task.description || '',
       assignedTo: task.assignedTo || '',
@@ -269,7 +293,6 @@ export default function Dashboard() {
           client: selectedTask.clientId ? { id: Number(selectedTask.clientId) } : undefined,
           title: editForm.task.trim(),
           description: editForm.description.trim(),
-          priority: editForm.priority.toUpperCase(),
           status: editForm.status.toUpperCase().replace(' ', '_'),
           dueDate: editForm.dueDate,
           assignedTo: selectedTask.assignedToId ? { id: Number(selectedTask.assignedToId) } : undefined,
@@ -352,6 +375,18 @@ export default function Dashboard() {
     }
   }
 
+  const formatStatisticValue = (value, loading) => {
+    if (loading) {
+      return '...'
+    }
+
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      return '—'
+    }
+
+    return value.toLocaleString()
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -362,7 +397,9 @@ export default function Dashboard() {
               Welcome back, Boss!
             </h1>
             <p className="max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-              You currently manage 152 clients and 8,431 secured documents.
+              You currently manage{' '}
+              {formatStatisticValue(totalClients, isStatisticsLoading)} clients and{' '}
+              {formatStatisticValue(totalDocuments, isStatisticsLoading)} secured documents.
             </p>
           </div>
 
@@ -372,6 +409,12 @@ export default function Dashboard() {
             </div>
           </div>
         </section>
+
+        {statisticsError ? (
+          <p role="alert" className="rounded-3xl border border-amber-200 bg-amber-50 px-6 py-4 text-sm text-amber-800">
+            {statisticsError}
+          </p>
+        ) : null}
 
         <section className="grid gap-6 xl:grid-cols-[repeat(6,minmax(0,1fr))]">
           {statisticCards.map((card) => {
@@ -435,7 +478,7 @@ export default function Dashboard() {
                   <Icon className="h-6 w-6" />
                 </div>
                 <p className="mt-6 text-sm font-medium text-slate-500">{card.title}</p>
-                {/* {card.button ? (
+                {card.button ? (
                   <button
                     type="button"
                     onClick={isAddClientCard ? handleAddClientCardAction : handleAddTaskCardAction}
@@ -447,18 +490,18 @@ export default function Dashboard() {
                 ) : (
                   <p className="mt-4 text-3xl font-semibold text-slate-950">
                     {card.title === 'Total Documents'
-                      ? totalDocuments.toLocaleString()
+                      ? formatStatisticValue(totalDocuments, isStatisticsLoading)
                       : card.title === 'Total Clients'
-                        ? totalClients.toLocaleString()
+                        ? formatStatisticValue(totalClients, isStatisticsLoading)
                         : isPendingCard
-                          ? pendingTasks.length
+                          ? formatStatisticValue(pendingTasks.length, isLoading || Boolean(error))
                           : isCompletedCard
-                            ? completedTasks.length
+                            ? formatStatisticValue(completedTasks.length, isLoading || Boolean(error))
                             : card.title === 'Urgent Matters'
-                              ? urgentTasks.length
-                              : card.value}
+                              ? formatStatisticValue(urgentTasks.length, isLoading || Boolean(error))
+                              : '—'}
                   </p>
-                )} */}
+                )}
                 <p className="mt-3 text-sm text-slate-500">{card.description}</p>
               </article>
             )
@@ -627,7 +670,9 @@ export default function Dashboard() {
                               <div>
                                 <p className="font-medium text-slate-900">{task.task || 'Untitled task'}</p>
                                 <p className="mt-1 text-sm text-slate-500">
-                                  Completed {formatTaskDate(task.completedAt || task.completedDate || task.completionDate)}
+                                  Completed {task.completedAt
+                                    ? formatTaskDate(task.completedAt)
+                                    : 'No completion date available.'}
                                 </p>
                               </div>
                             </div>
@@ -796,17 +841,6 @@ export default function Dashboard() {
                         onChange={handleEditFormChange}
                         className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
                       />
-                    </label>
-                    <label>
-                      <span className="text-sm font-medium text-slate-700">Priority</span>
-                      <select
-                        name="priority"
-                        value={editForm.priority || 'Medium'}
-                        onChange={handleEditFormChange}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
-                      >
-                        {['Critical', 'High', 'Medium', 'Low'].map((priority) => <option key={priority}>{priority}</option>)}
-                      </select>
                     </label>
                     <label>
                       <span className="text-sm font-medium text-slate-700">Status</span>

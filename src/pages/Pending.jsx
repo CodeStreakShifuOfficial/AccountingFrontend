@@ -16,6 +16,20 @@ const statusLabels = {
   OVERDUE: 'Overdue',
 }
 
+const priorityStyles = {
+  LOW: 'bg-slate-100 text-slate-600',
+  MEDIUM: 'bg-blue-100 text-blue-700',
+  HIGH: 'bg-amber-100 text-amber-700',
+  CRITICAL: 'bg-red-100 text-red-700',
+}
+
+const priorityLabels = {
+  LOW: 'Low',
+  MEDIUM: 'Medium',
+  HIGH: 'High',
+  CRITICAL: 'Critical',
+}
+
 export default function Pending() {
   const navigate = useNavigate()
   const [pendingTasks, setPendingTasks] = useState([])
@@ -38,6 +52,7 @@ export default function Pending() {
             assignedToName: task.assignedTo?.username || task.assignedTo?.firstName || task.assignedTo || 'Unassigned',
             dueDate: task.dueDate || 'Not set',
             statusKey: String(task.status).toUpperCase(),
+            priorityKey: String(task.priority || 'LOW').toUpperCase(),
           }))
 
         if (isMounted) {
@@ -137,6 +152,7 @@ export default function Pending() {
                   <th className="px-4 py-3">Category</th>
                   <th className="px-4 py-3">Due Date</th>
                   <th className="px-4 py-3">Assigned</th>
+                  <th className="px-4 py-3">Priority</th>
                   <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
@@ -149,6 +165,11 @@ export default function Pending() {
                       <td className="px-4 py-4 text-sm text-slate-700">{task.category || 'General'}</td>
                       <td className="px-4 py-4 text-sm text-slate-700">{task.dueDate}</td>
                       <td className="px-4 py-4 text-sm text-slate-700">{task.assignedToName}</td>
+                      <td className="px-4 py-4">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${priorityStyles[task.priorityKey] || priorityStyles.LOW}`}>
+                          {priorityLabels[task.priorityKey] || 'Low'}
+                        </span>
+                      </td>
                       <td className="px-4 py-4">
                         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[statusLabels[task.statusKey]] || statusStyles.Pending}`}>
                           {statusLabels[task.statusKey] || 'Pending'}

@@ -19,29 +19,6 @@ const categories = [
   'Financial Statements',
   'Payroll Documents',
 ]
-const priorities = ['Critical', 'High', 'Medium', 'Low']
-
-const todayTasks = [
-  {
-    client: 'ABC Corporation',
-    task: 'Review 1701 filing',
-    due: 'Today',
-    priority: 'High',
-  },
-  {
-    client: 'XYZ Trading',
-    task: 'Approve payroll package',
-    due: 'Tomorrow',
-    priority: 'Medium',
-  },
-  {
-    client: 'Prime Holdings',
-    task: 'Sign SEC submission',
-    due: 'Aug 15',
-    priority: 'Critical',
-  },
-]
-
 const priorityBadge = {
   Critical: 'bg-red-100 text-red-700',
   High: 'bg-orange-100 text-orange-700',
@@ -57,7 +34,6 @@ export default function AddTask() {
   const [category, setCategory] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [priority, setPriority] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [assignedToId, setAssignedToId] = useState('')
   const [errors, setErrors] = useState({})
@@ -65,6 +41,7 @@ export default function AddTask() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingOptions, setIsLoadingOptions] = useState(true)
   const [optionsError, setOptionsError] = useState('')
+  const [todayTasks, setTodayTasks] = useState([])
   const currentUser = getStoredUser()
 
   useEffect(() => {
@@ -72,14 +49,26 @@ export default function AddTask() {
 
     const loadFormOptions = async () => {
       try {
-        const [clientsResponse, usersResponse] = await Promise.all([
+        const [clientsResponse, usersResponse, tasksResponse] = await Promise.all([
           api.get('/clients'),
           api.get('/users'),
+          api.get('/tasks'),
         ])
 
         if (isMounted) {
           setClients(Array.isArray(clientsResponse.data) ? clientsResponse.data : [])
           setUsers(Array.isArray(usersResponse.data) ? usersResponse.data : [])
+          setTodayTasks(
+            (Array.isArray(tasksResponse.data) ? tasksResponse.data : [])
+              .filter((task) => String(task.status || '').toUpperCase() !== 'COMPLETED')
+              .slice(0, 3)
+              .map((task) => ({
+                task: task.title || task.task || 'Untitled task',
+                client: task.client?.companyName || task.client?.name || 'No client',
+                due: task.dueDate || 'Not set',
+                priority: String(task.priority || 'LOW').toLowerCase().replace(/^./, (letter) => letter.toUpperCase()),
+              })),
+          )
         }
       } catch (requestError) {
         if (isMounted) {
@@ -104,7 +93,6 @@ export default function AddTask() {
     setCategory('')
     setTitle('')
     setDescription('')
-    setPriority('')
     setDueDate('')
     setAssignedToId('')
     setErrors({})
@@ -116,7 +104,6 @@ export default function AddTask() {
 
     if (!clientId) validationErrors.client = 'Client is required.'
     if (!title.trim()) validationErrors.title = 'Task title is required.'
-    if (!priority) validationErrors.priority = 'Priority is required.'
     if (!dueDate) validationErrors.dueDate = 'Due date is required.'
     if (!assignedToId) validationErrors.assignTo = 'Assigned user is required.'
     if (!currentUser?.id) validationErrors.submit = 'Your authenticated user could not be identified.'
@@ -131,7 +118,6 @@ export default function AddTask() {
           client: { id: Number(clientId) },
           title: title.trim(),
           description: description.trim(),
-          priority: priority.toUpperCase(),
           status: 'PENDING',
           dueDate,
           createdBy: { id: Number(currentUser.id) },
@@ -254,23 +240,6 @@ export default function AddTask() {
                     rows={4}
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
                   />
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Priority</label>
-                  <select
-                    value={priority}
-                    onChange={(event) => setPriority(event.target.value)}
-                    className={`mt-2 w-full rounded-2xl border px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200 ${errors.priority ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}
-                  >
-                    <option value="">Select priority</option>
-                    {priorities.map((level) => (
-                      <option key={level} value={level}>
-                        {level}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.priority ? <p className="mt-2 text-sm text-rose-600">{errors.priority}</p> : null}
                 </div>
 
                 <div>

@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { deactivateClient, getClients } from '../api/clients.js'
+import { deactivateClient, getClients, updateClient } from '../api/clients.js'
 import {
   AlertCircle,
   ChevronDown,
@@ -10,7 +10,6 @@ import {
   Plus,
   Search,
   Trash2,
-  Upload,
   UserCheck,
   UserX,
   Users,
@@ -56,6 +55,26 @@ const formatCellValue = (value) => {
   return String(value)
 }
 
+const normalizeDateInput = (value) => {
+  if (!value) {
+    return ''
+  }
+
+  const textValue = String(value)
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(textValue)) {
+    return textValue
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  return date.toISOString().slice(0, 10)
+}
+
 const isNewClientThisMonth = (createdAt) => {
   if (!createdAt) {
     return false
@@ -83,6 +102,21 @@ export default function Clients() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [successMessage, setSuccessMessage] = useState('')
   const [clientToDeactivate, setClientToDeactivate] = useState(null)
+  const [clientToEdit, setClientToEdit] = useState(null)
+  const [editForm, setEditForm] = useState({
+    clientCode: '',
+    companyName: '',
+    contactPerson: '',
+    email: '',
+    tin: '',
+    phone: '',
+    address: '',
+    dateOfBirth: '',
+    dateOfIncorporation: '',
+    status: 'ACTIVE',
+  })
+  const [editError, setEditError] = useState('')
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false)
 
   const loadClients = useCallback(async (options = {}) => {
     const { preserveSuccessMessage = false } = options
@@ -108,6 +142,8 @@ export default function Clients() {
   }, [])
 
   useEffect(() => {
+    // The initial client fetch synchronizes this page with the API.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadClients({ preserveSuccessMessage: true })
   }, [loadClients])
 
@@ -226,8 +262,102 @@ export default function Clients() {
     }
   }
 
-  const handleEditClient = () => undefined
-  const handleUploadDocuments = () => undefined
+  const handleEditClient = (client) => {
+    setClientToEdit(client)
+    setEditForm({
+      clientCode: client.clientCode ?? '',
+      companyName: client.companyName ?? '',
+      contactPerson: client.contactPerson ?? '',
+      email: client.email ?? '',
+      tin: client.tin ?? '',
+      phone: client.phone ?? '',
+      address: client.address ?? '',
+      dateOfBirth: normalizeDateInput(client.birthdate ?? client.dateOfBirth),
+      dateOfIncorporation: normalizeDateInput(client.dateOfIncorporation),
+      status: normalizeStatus(client.status),
+    })
+    setEditError('')
+    setSuccessMessage('')
+  }
+
+  const closeEditModal = () => {
+    if (isEditSubmitting) {
+      return
+    }
+
+    setClientToEdit(null)
+    setEditError('')
+  }
+
+  const handleEditFormChange = (event) => {
+    const { name, value } = event.target
+    setEditForm((currentForm) => ({ ...currentForm, [name]: value }))
+  }
+
+  const handleUpdateClient = async (event) => {
+    event.preventDefault()
+
+    const companyName = editForm.companyName.trim()
+    const email = editForm.email.trim()
+
+    if (!clientToEdit?.id) {
+      setEditError('The selected client could not be identified.')
+      return
+    }
+
+    if (!companyName) {
+      setEditError('Company Name is required.')
+      return
+    }
+
+    if (!email) {
+      setEditError('Email is required.')
+      return
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEditError('Please enter a valid email address.')
+      return
+    }
+
+    setIsEditSubmitting(true)
+    setEditError('')
+
+    const payload = {
+      clientCode: editForm.clientCode,
+      companyName,
+      contactPerson: editForm.contactPerson.trim(),
+      email,
+      tin: editForm.tin.trim(),
+      phone: editForm.phone.trim(),
+      address: editForm.address.trim(),
+      birthdate: editForm.dateOfBirth || null,
+      dateOfIncorporation: editForm.dateOfIncorporation || null,
+      status: editForm.status,
+    }
+
+    try {
+      const updatedClient = await updateClient(clientToEdit.id, payload)
+
+      setClientRows((currentRows) =>
+        currentRows.map((client) =>
+          client.id === clientToEdit.id
+            ? { ...client, ...(updatedClient || payload), birthdate: updatedClient?.birthdate ?? payload.birthdate }
+            : client,
+        ),
+      )
+      setClientToEdit(null)
+      setEditError('')
+      setSuccessMessage('Client information updated successfully.')
+    } catch (requestError) {
+      setEditError(
+        requestError.response?.data?.message ||
+          'Unable to update client. Please try again.',
+      )
+    } finally {
+      setIsEditSubmitting(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
@@ -437,10 +567,7 @@ export default function Clients() {
                     const companyName = formatCellValue(client.companyName)
                     const contactPerson = formatCellValue(client.contactPerson)
                     const clientCode = formatCellValue(client.clientCode)
-                    const email = formatCellValue(client.email)
-                    const tin = formatCellValue(client.tin)
                     const phone = formatCellValue(client.phone)
-                    const address = formatCellValue(client.address)
 
                     return (
                       <tr
@@ -528,20 +655,10 @@ export default function Clients() {
                               type="button"
                               title="Edit client"
                               aria-label={`Edit ${companyName === '—' ? 'client' : companyName}`}
-                              onClick={handleEditClient}
+                              onClick={() => handleEditClient(client)}
                               className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-sky-200 bg-sky-50 text-sky-700 transition duration-200 hover:border-sky-300 hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-200"
                             >
                               <Edit3 className="h-4 w-4" />
-                            </button>
-
-                            <button
-                              type="button"
-                              title="Upload documents"
-                              aria-label={`Upload documents for ${companyName === '—' ? 'client' : companyName}`}
-                              onClick={handleUploadDocuments}
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-violet-200 bg-violet-50 text-violet-700 transition duration-200 hover:border-violet-300 hover:bg-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-200"
-                            >
-                              <Upload className="h-4 w-4" />
                             </button>
 
                             <button
@@ -564,6 +681,226 @@ export default function Clients() {
           ) : null}
         </section>
       </div>
+
+      {clientToEdit ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4 sm:p-6"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeEditModal()
+            }
+          }}
+        >
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-client-title"
+            onSubmit={handleUpdateClient}
+            className="my-8 w-full max-w-2xl rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-2xl sm:p-8"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-600">
+                  Client Management
+                </p>
+                <h2 id="edit-client-title" className="mt-2 text-2xl font-semibold text-slate-950">
+                  Edit Client Information
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  Update the information for this client.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeEditModal}
+                disabled={isEditSubmitting}
+                aria-label="Close edit client dialog"
+                className="rounded-xl p-2 text-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                ×
+              </button>
+            </div>
+
+            {editError ? (
+              <p role="alert" className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {editError}
+              </p>
+            ) : null}
+
+            <div className="mt-6 grid gap-5 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label htmlFor="edit-client-code" className="text-sm font-medium text-slate-700">
+                  Client Code
+                </label>
+                <input
+                  id="edit-client-code"
+                  name="clientCode"
+                  type="text"
+                  value={editForm.clientCode}
+                  readOnly
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-company-name" className="text-sm font-medium text-slate-700">
+                  Company Name <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  id="edit-company-name"
+                  name="companyName"
+                  type="text"
+                  value={editForm.companyName}
+                  onChange={handleEditFormChange}
+                  disabled={isEditSubmitting}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-200 disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-contact-person" className="text-sm font-medium text-slate-700">
+                  Contact Person
+                </label>
+                <input
+                  id="edit-contact-person"
+                  name="contactPerson"
+                  type="text"
+                  value={editForm.contactPerson}
+                  onChange={handleEditFormChange}
+                  disabled={isEditSubmitting}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-200 disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-email" className="text-sm font-medium text-slate-700">
+                  Email <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  id="edit-email"
+                  name="email"
+                  type="email"
+                  value={editForm.email}
+                  onChange={handleEditFormChange}
+                  disabled={isEditSubmitting}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-200 disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-tin" className="text-sm font-medium text-slate-700">
+                  TIN
+                </label>
+                <input
+                  id="edit-tin"
+                  name="tin"
+                  type="text"
+                  value={editForm.tin}
+                  onChange={handleEditFormChange}
+                  disabled={isEditSubmitting}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-200 disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-phone" className="text-sm font-medium text-slate-700">
+                  Phone
+                </label>
+                <input
+                  id="edit-phone"
+                  name="phone"
+                  type="text"
+                  value={editForm.phone}
+                  onChange={handleEditFormChange}
+                  disabled={isEditSubmitting}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-200 disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-date-of-birth" className="text-sm font-medium text-slate-700">
+                  Date of Birth
+                </label>
+                <input
+                  id="edit-date-of-birth"
+                  name="dateOfBirth"
+                  type="date"
+                  value={editForm.dateOfBirth}
+                  onChange={handleEditFormChange}
+                  disabled={isEditSubmitting}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-200 disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-date-of-incorporation" className="text-sm font-medium text-slate-700">
+                  Date of Incorporation
+                </label>
+                <input
+                  id="edit-date-of-incorporation"
+                  name="dateOfIncorporation"
+                  type="date"
+                  value={editForm.dateOfIncorporation}
+                  onChange={handleEditFormChange}
+                  disabled={isEditSubmitting}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-200 disabled:opacity-60"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="edit-status" className="text-sm font-medium text-slate-700">
+                  Status
+                </label>
+                <select
+                  id="edit-status"
+                  name="status"
+                  value={editForm.status}
+                  onChange={handleEditFormChange}
+                  disabled={isEditSubmitting}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-200 disabled:opacity-60"
+                >
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="edit-address" className="text-sm font-medium text-slate-700">
+                  Address
+                </label>
+                <textarea
+                  id="edit-address"
+                  name="address"
+                  rows="3"
+                  value={editForm.address}
+                  onChange={handleEditFormChange}
+                  disabled={isEditSubmitting}
+                  className="mt-2 w-full resize-y rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-200 disabled:opacity-60"
+                />
+              </div>
+            </div>
+
+            <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeEditModal}
+                disabled={isEditSubmitting}
+                className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isEditSubmitting}
+                className="rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isEditSubmitting ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
 
       {clientToDeactivate ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">

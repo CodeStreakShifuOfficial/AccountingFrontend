@@ -64,6 +64,8 @@ export default function DocumentList() {
   const user = getStoredUser()
   const userRole = String(user?.role || '').toUpperCase()
   const canDelete = ['OWNER', 'ACCOUNTANT', 'ACCOUNT'].includes(userRole)
+  const isLiaisonOfficer = userRole === 'LIAISON_OFFICER'
+  const canManageFolders = ['OWNER', 'ACCOUNTANT', 'ACCOUNT'].includes(userRole)
 
   const loadData = async (keepSelected = true) => {
     setIsLoading(true)
@@ -88,7 +90,7 @@ export default function DocumentList() {
         ...folder,
         label: folder.folderName || 'Unnamed folder',
         description: 'Documents for this category',
-        year: folder.folderName?.match(/\d{4}/)?.[0] || 'Folder',
+        // year: folder.folderName?.match(/\d{4}/)?.[0] || 'Folder',
       })))
       setDocuments(documentsData)
       setSelectedFolderId((current) => keepSelected && availableFolders.some((folder) => folder.id === current)
@@ -105,6 +107,8 @@ export default function DocumentList() {
   }
 
   useEffect(() => {
+    // Load the selected client/category from the authenticated API.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData(false)
   }, [clientId, category])
 
@@ -354,10 +358,10 @@ export default function DocumentList() {
                 <h2 className="mt-2 text-2xl font-semibold text-slate-950">Files ready for review</h2>
               </div>
               <div className="flex flex-wrap gap-3">
-                <button type="button" onClick={() => { setOperationError(''); setFolderName(''); setShowFolderModal(true) }} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition duration-300 hover:border-sky-300 hover:text-sky-600">
+                {canManageFolders ? <button type="button" onClick={() => { setOperationError(''); setFolderName(''); setShowFolderModal(true) }} disabled={isCreatingFolder} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition duration-300 hover:border-sky-300 hover:text-sky-600 disabled:cursor-not-allowed disabled:opacity-50">
                   <FolderOpen className="h-4 w-4" />
                   Create Folder
-                </button>
+                </button> : null}
                 <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-sky-600 px-4 py-3 text-sm font-semibold text-white transition duration-300 hover:bg-sky-500">
                   <Upload className="h-4 w-4" />
                   {isUploading ? 'Uploading...' : 'Upload File'}
@@ -366,6 +370,8 @@ export default function DocumentList() {
               </div>
             </div>
 
+            {isLoading ? <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">Loading folders and documents...</p> : null}
+            {error ? <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
             {operationError ? <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{operationError}</p> : null}
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -387,9 +393,9 @@ export default function DocumentList() {
                       <p className="text-sm font-semibold text-slate-900">{folder.label}</p>
                       <p className="mt-1 text-sm text-slate-500">{folder.description}</p>
                     </div>
-                    <button type="button" onClick={(event) => handleDeleteFolder(event, folder)} className="rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" aria-label={`Delete ${folder.label}`}>
+                    {canManageFolders ? <button type="button" onClick={(event) => handleDeleteFolder(event, folder)} className="rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600" aria-label={`Delete ${folder.label}`}>
                       <Trash2 className="h-4 w-4" />
-                    </button>
+                    </button> : null}
                   </div>
                   <div className="mt-5 flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{folder.year}</span>
@@ -410,10 +416,10 @@ export default function DocumentList() {
                     <p className="text-xl font-semibold text-slate-950">{selectedFolder?.label || 'No folder selected'}</p>
                   </div>
                 </div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700">
+                {/* <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700">
                   <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">Year</span>
                   {selectedFolder?.year || 'Folder'}
-                </div>
+                </div> */}
               </div>
             </div>
 
@@ -431,7 +437,7 @@ export default function DocumentList() {
               <div className="flex gap-3">
                 <button className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition duration-300 hover:border-slate-300 hover:bg-slate-50">
                   <CalendarDays className="h-4 w-4 text-slate-500" />
-                  {selectedFolder?.year || 'Folder'} Folder
+                  {/* {selectedFolder?.year || 'Folder'} Folder */}
                 </button>
               </div>
             </div>
@@ -478,9 +484,9 @@ export default function DocumentList() {
                         <button type="button" title="Download document" onClick={() => handleDownloadFile(file)} disabled={processingDocumentId === file.id} className="rounded-2xl border border-slate-200 bg-white p-2 text-slate-600 transition duration-300 hover:border-sky-300 hover:text-sky-600 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Download ${file.originalFilename || 'file'}`}>
                           <Download className="h-4 w-4" />
                         </button>
-                        <button type="button" title="Rename document" onClick={() => { setOperationError(''); setSuccessMessage(''); setDocumentToRename(file); setRenameValue(file.originalFilename || '') }} disabled={processingDocumentId === file.id} className="rounded-2xl border border-sky-200 bg-sky-50 p-2 text-sky-700 transition duration-300 hover:border-sky-300 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Rename ${file.originalFilename || 'file'}`}>
+                        {!isLiaisonOfficer ? <button type="button" title="Rename document" onClick={() => { setOperationError(''); setSuccessMessage(''); setDocumentToRename(file); setRenameValue(file.originalFilename || '') }} disabled={processingDocumentId === file.id} className="rounded-2xl border border-sky-200 bg-sky-50 p-2 text-sky-700 transition duration-300 hover:border-sky-300 hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Rename ${file.originalFilename || 'file'}`}>
                           <Pencil className="h-4 w-4" />
-                        </button>
+                        </button> : null}
                         {canDelete ? <button type="button" title="Delete document" onClick={() => { setOperationError(''); setSuccessMessage(''); setDocumentToDelete(file) }} disabled={processingDocumentId === file.id} className="rounded-2xl border border-rose-200 bg-rose-50 p-2 text-rose-600 transition duration-300 hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50" aria-label={`Delete ${file.originalFilename || 'file'}`}>
                           <Trash2 className="h-4 w-4" />
                         </button> : null}
@@ -563,6 +569,33 @@ export default function DocumentList() {
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {showFolderModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-folder-title"
+            onSubmit={handleCreateFolder}
+            className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl"
+          >
+            <h2 id="create-folder-title" className="text-xl font-semibold text-slate-950">Create Folder</h2>
+            <label htmlFor="document-folder-name" className="mt-5 block text-sm font-medium text-slate-700">Folder name</label>
+            <input
+              id="document-folder-name"
+              value={folderName}
+              onChange={(event) => setFolderName(event.target.value)}
+              autoFocus
+              disabled={isCreatingFolder}
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-400 focus:bg-white focus:ring-2 focus:ring-sky-200 disabled:opacity-60"
+            />
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setShowFolderModal(false)} disabled={isCreatingFolder} className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Cancel</button>
+              <button type="submit" disabled={isCreatingFolder} className="rounded-2xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-50">{isCreatingFolder ? 'Creating...' : 'Create Folder'}</button>
+            </div>
+          </form>
         </div>
       ) : null}
     </div>
