@@ -1,19 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
-  Building2,
   Calendar,
   CheckCircle,
   ClipboardList,
   FolderOpen,
-  Flag,
   PlusCircle,
-  User,
 } from 'lucide-react'
-import { addPendingTask } from '../utils/taskStorage.js'
+import api from '../api/axios'
+import { getStoredUser } from '../api/auth'
 
-const clients = ['ABC Corporation', 'XYZ Trading', 'Prime Holdings']
 const categories = [
   'BIR Files',
   'SEC Files',
@@ -23,8 +20,6 @@ const categories = [
   'Payroll Documents',
 ]
 const priorities = ['Critical', 'High', 'Medium', 'Low']
-const assignees = ['John', 'Maria', 'James', 'Owner']
-const statuses = ['Pending', 'In Progress', 'Completed']
 
 const todayTasks = [
   {
@@ -56,45 +51,102 @@ const priorityBadge = {
 
 export default function AddTask() {
   const navigate = useNavigate()
-  const [client, setClient] = useState('')
+  const [clients, setClients] = useState([])
+  const [users, setUsers] = useState([])
+  const [clientId, setClientId] = useState('')
   const [category, setCategory] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState('')
   const [dueDate, setDueDate] = useState('')
-  const [assignTo, setAssignTo] = useState('')
-  const [status, setStatus] = useState('Pending')
+  const [assignedToId, setAssignedToId] = useState('')
   const [errors, setErrors] = useState({})
   const [success, setSuccess] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoadingOptions, setIsLoadingOptions] = useState(true)
+  const [optionsError, setOptionsError] = useState('')
+  const currentUser = getStoredUser()
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadFormOptions = async () => {
+      try {
+        const [clientsResponse, usersResponse] = await Promise.all([
+          api.get('/clients'),
+          api.get('/users'),
+        ])
+
+        if (isMounted) {
+          setClients(Array.isArray(clientsResponse.data) ? clientsResponse.data : [])
+          setUsers(Array.isArray(usersResponse.data) ? usersResponse.data : [])
+        }
+      } catch (requestError) {
+        if (isMounted) {
+          setOptionsError(requestError.response?.data?.message || 'Unable to load clients and users.')
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingOptions(false)
+        }
+      }
+    }
+
+    loadFormOptions()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const resetForm = () => {
-    setClient('')
+    setClientId('')
     setCategory('')
     setTitle('')
     setDescription('')
     setPriority('')
     setDueDate('')
-    setAssignTo('')
-    setStatus('Pending')
+    setAssignedToId('')
     setErrors({})
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
     const validationErrors = {}
 
-    if (!client) validationErrors.client = 'Client is required.'
+    if (!clientId) validationErrors.client = 'Client is required.'
     if (!title.trim()) validationErrors.title = 'Task title is required.'
     if (!priority) validationErrors.priority = 'Priority is required.'
     if (!dueDate) validationErrors.dueDate = 'Due date is required.'
+    if (!assignedToId) validationErrors.assignTo = 'Assigned user is required.'
+    if (!currentUser?.id) validationErrors.submit = 'Your authenticated user could not be identified.'
 
     setErrors(validationErrors)
 
     if (Object.keys(validationErrors).length === 0) {
-      addPendingTask({ client, title, category, dueDate, priority, assignTo, status })
-      setSuccess(true)
-      resetForm()
-      window.setTimeout(() => setSuccess(false), 4000)
+      setIsSubmitting(true)
+
+      try {
+        await api.post('/tasks', {
+          client: { id: Number(clientId) },
+          title: title.trim(),
+          description: description.trim(),
+          priority: priority.toUpperCase(),
+          status: 'PENDING',
+          dueDate,
+          createdBy: { id: Number(currentUser.id) },
+          assignedTo: { id: Number(assignedToId) },
+        })
+
+        setErrors({})
+        setSuccess(true)
+        resetForm()
+        window.setTimeout(() => navigate('/pending'), 700)
+      } catch (requestError) {
+        setErrors({ submit: requestError.response?.data?.message || 'Unable to create task. Please check the information and try again.' })
+      } finally {
+        setIsSubmitting(false)
+      }
     }
   }
 
@@ -145,14 +197,18 @@ export default function AddTask() {
                 <div>
                   <label className="text-sm font-medium text-slate-700">Client</label>
                   <select
-                    value={client}
-                    onChange={(event) => setClient(event.target.value)}
+                    value={clientId}
+                    onChange={(event) => setClientId(event.target.value)}
+                    disabled={isLoadingOptions}
                     className={`mt-2 w-full rounded-2xl border px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200 ${errors.client ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-white'}`}
                   >
-                    <option value="">Select client</option>
-                    {clients.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
+                    <option value="">{isLoadingOptions ? 'Loading clients...' : 'Select client'}</option>
+                    {!isLoadingOptions && clients.filter((item) => item.status === 'ACTIVE').length === 0 ? (
+                      <option value="" disabled>No active clients available</option>
+                    ) : null}
+                    {clients.filter((item) => item.status === 'ACTIVE').map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.companyName}
                       </option>
                     ))}
                   </select>
@@ -231,34 +287,34 @@ export default function AddTask() {
                 <div>
                   <label className="text-sm font-medium text-slate-700">Assign To</label>
                   <select
-                    value={assignTo}
-                    onChange={(event) => setAssignTo(event.target.value)}
+                    value={assignedToId}
+                    onChange={(event) => setAssignedToId(event.target.value)}
+                    disabled={isLoadingOptions}
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
                   >
-                    <option value="">Select assignee</option>
-                    {assignees.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
+                    <option value="">{isLoadingOptions ? 'Loading users...' : 'Select assignee'}</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.username || [user.firstName, user.lastName].filter(Boolean).join(' ') || `User ${user.id}`}
                       </option>
                     ))}
                   </select>
+                  {errors.assignTo ? <p className="mt-2 text-sm text-rose-600">{errors.assignTo}</p> : null}
                 </div>
 
                 <div>
                   <label className="text-sm font-medium text-slate-700">Status</label>
-                  <select
-                    value={status}
-                    onChange={(event) => setStatus(event.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-200"
-                  >
-                    {statuses.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
+                  <input
+                    type="text"
+                    value="Pending"
+                    readOnly
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-700 outline-none"
+                  />
                 </div>
               </div>
+
+              {optionsError ? <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{optionsError}</p> : null}
+              {errors.submit ? <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{errors.submit}</p> : null}
 
               <div className="flex flex-col gap-3 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm text-slate-500">Use this form to add a task quickly without leaving the dashboard.</div>
@@ -272,10 +328,11 @@ export default function AddTask() {
                   </button>
                   <button
                     type="submit"
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white transition duration-300 hover:bg-sky-500"
+                    disabled={isSubmitting}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white transition duration-300 hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     <CheckCircle className="h-4 w-4" />
-                    Save Task
+                    {isSubmitting ? 'Creating Task...' : 'Save Task'}
                   </button>
                 </div>
               </div>

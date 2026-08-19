@@ -1,17 +1,19 @@
 import { useState } from 'react'
 import Logo from '../assets/logo.png'
+import { login } from "../api/auth";
 
 export default function Login({ onForgotPassword, onLoginSuccess }) {
-  const [Username, setUsername] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    if (!Username.trim() || !password.trim()) {
+    if (!username.trim() || !password.trim()) {
       setError('Please enter both username and password.')
       setSubmitted(false)
       return
@@ -19,14 +21,38 @@ export default function Login({ onForgotPassword, onLoginSuccess }) {
 
     setError('')
     setIsSubmitting(true)
-    setTimeout(() => {
-      setSubmitted(true)
-      setIsSubmitting(false)
-      if (onLoginSuccess) {
-        onLoginSuccess()
+
+    try {
+      const data = await login(username, password)
+
+      const user = {
+        id: data.id,
+        username: data.username,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: data.role,
+        status: data.status,
       }
-    }, 450)
-    console.log('Login submitted:', { Username, password, rememberMe })
+
+      const storage = rememberMe ? localStorage : sessionStorage
+      storage.setItem('token', data.token)
+      storage.setItem('user', JSON.stringify(user))
+
+      setSubmitted(true)
+
+      if (onLoginSuccess) {
+        onLoginSuccess(user)
+      }
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        'Invalid username or password.'
+
+      setError(message)
+      setSubmitted(false)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -96,7 +122,7 @@ export default function Login({ onForgotPassword, onLoginSuccess }) {
 
             <form className="mt-8 space-y-6" onSubmit={handleSubmit} noValidate>
               <div>
-                <label htmlFor="Username" className="block text-sm font-medium text-slate-300">
+                <label htmlFor="username" className="block text-sm font-medium text-slate-300">
                   Username  
                 </label>
                 <div className="relative mt-3">
@@ -107,11 +133,11 @@ export default function Login({ onForgotPassword, onLoginSuccess }) {
                     </svg>
                   </span>
                   <input
-                    id="Username"
-                    name="Username"
+                    id="username"
+                    name="username"
                     type="text"
                     autoComplete="Username"
-                    value={Username}
+                    value={username}
                     onChange={(event) => setUsername(event.target.value)}
                     className="w-full rounded-3xl border border-slate-700 bg-slate-900/90 px-5 py-4 pl-14 text-white placeholder:text-slate-500 shadow-sm shadow-slate-950/20 transition duration-300 ease-out focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
                     placeholder="Username"
@@ -133,13 +159,32 @@ export default function Login({ onForgotPassword, onLoginSuccess }) {
                   <input
                     id="password"
                     name="password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    className="w-full rounded-3xl border border-slate-700 bg-slate-900/90 px-5 py-4 pl-14 text-white placeholder:text-slate-500 shadow-sm shadow-slate-950/20 transition duration-300 ease-out focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
+                    className="w-full rounded-3xl border border-slate-700 bg-slate-900/90 px-5 py-4 pl-14 pr-14 text-white placeholder:text-slate-500 shadow-sm shadow-slate-950/20 transition duration-300 ease-out focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500/30"
                     placeholder="Enter your password"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    className="absolute inset-y-0 right-4 flex items-center text-slate-400 transition hover:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500/50"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? (
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5">
+                        <path d="M3 3L21 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        <path d="M10.58 10.58A2 2 0 0 0 13.42 13.42M9.88 5.11A10.6 10.6 0 0 1 12 4.9C17.05 4.9 20.5 12 20.5 12a17.7 17.7 0 0 1-3.17 4.13M6.61 6.61C4.37 8.17 3.5 12 3.5 12S6.95 19.1 12 19.1a9.5 9.5 0 0 0 3.12-.53" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-5 w-5">
+                        <path d="M2.75 12S6.2 4.9 12 4.9 21.25 12 21.25 12 17.8 19.1 12 19.1 2.75 12 2.75 12Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <circle cx="12" cy="12" r="2.75" stroke="currentColor" strokeWidth="1.5" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -188,7 +233,7 @@ export default function Login({ onForgotPassword, onLoginSuccess }) {
               <div className="mt-7 rounded-3xl border border-slate-700 bg-slate-900/90 p-5 text-sm text-slate-200 shadow-sm shadow-slate-950/20">
                 <p className="font-medium text-white">Login submitted successfully!</p>
                 <p className="mt-2 text-slate-400">
-                  Username: <span className="text-slate-100">{Username}</span>
+                  Username: <span className="text-slate-100">{username}</span>
                 </p>
               </div>
             ) : null}

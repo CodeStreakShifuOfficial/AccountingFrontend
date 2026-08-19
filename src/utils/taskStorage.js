@@ -46,7 +46,7 @@ export function loadPendingTasks() {
 
     const parsed = JSON.parse(stored)
     return Array.isArray(parsed) ? parsed : defaultPendingTasks
-  } catch (error) {
+  } catch {
     return defaultPendingTasks
   }
 }
@@ -57,11 +57,31 @@ export function savePendingTasks(tasks) {
   }
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
+  window.dispatchEvent(new Event('tasks-updated'))
+}
+
+export const loadTasks = loadPendingTasks
+export const saveTasks = savePendingTasks
+
+export function updateTask(taskId, updates) {
+  const tasks = loadPendingTasks()
+  const updatedTasks = tasks.map((task) => (
+    task.id === taskId ? { ...task, ...updates } : task
+  ))
+
+  savePendingTasks(updatedTasks)
+  return updatedTasks
+}
+
+export function completeTask(taskId) {
+  return updateTask(taskId, {
+    status: 'Completed',
+    completedAt: new Date().toISOString(),
+  })
 }
 
 export function addPendingTask(task) {
   const tasks = loadPendingTasks()
-  const lastId = tasks.length ? tasks[0]?.id || tasks[tasks.length - 1]?.id : 'PT-00'
   const nextNumber = tasks.length + 1
   const nextId = `PT-${String(nextNumber).padStart(2, '0')}`
 
@@ -69,11 +89,14 @@ export function addPendingTask(task) {
     id: nextId,
     client: task.client,
     task: task.title,
+    description: task.description || '',
     category: task.category || 'General',
     dueDate: task.dueDate || 'TBD',
     priority: task.priority || 'Medium',
     assignedTo: task.assignTo || 'Unassigned',
     status: task.status || 'Pending',
+    createdAt: new Date().toISOString(),
+    ...(task.status === 'Completed' ? { completedAt: new Date().toISOString() } : {}),
   }
 
   const updated = [newTask, ...tasks]

@@ -1,11 +1,31 @@
 import { useState } from 'react'
 import Logo from '../assets/logo.png'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { getStoredUser, logout } from '../api/auth'
 
 import{CircleUser} from 'lucide-react'
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const navigate = useNavigate()
+  useLocation()
+  const user = getStoredUser()
+  const isLoggedIn = !!user
+  const displayName = user
+    ? [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || 'User'
+    : 'User'
+
+  const handleLogout = () => {
+    logout()
+    setProfileOpen(false)
+    navigate('/')
+  }
+
+  const handleLogin = () => {
+    setProfileOpen(false)
+    navigate('/')
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/95 shadow-slate-950/20 backdrop-blur-xl transition-shadow duration-300">
@@ -86,20 +106,39 @@ export default function Navbar() {
               <span className="inline-flex h-9 w-5 items-center justify-center text-slate-200">
                 <CircleUser className="text-md font-semibold"/>
               </span>
-              <span className="hidden sm:inline">Your Name</span>
+              <span className="hidden sm:inline">{displayName}</span>
             </button>
 
              {profileOpen ? (
               <div className="absolute right-0 mt-3 w-56 rounded-3xl border border-white/10 bg-slate-950/95 p-3 shadow-2xl shadow-slate-950/30 backdrop-blur-xl">
-                <a href="#" className="block rounded-2xl px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800">
-                  Profile
-                </a>
-                <a href="#" className="mt-2 block rounded-2xl px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800">
-                  Settings
-                </a>
-                <a href="#" className="mt-2 block rounded-2xl px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800">
-                  Sign out
-                </a>
+                {isLoggedIn ? (
+                  <>
+                    <p className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-sky-300">
+                      {user.role || 'User'}
+                    </p>
+                    <a href="#" className="block rounded-2xl px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-800">
+                      Profile
+                    </a>
+                    <a href="#" className="mt-2 block rounded-2xl px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-slate-800">
+                      Settings
+                    </a>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="mt-2 block w-full rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-300 transition hover:bg-slate-800"
+                    >
+                      Sign out
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleLogin}
+                    className="block w-full rounded-2xl px-4 py-3 text-left text-sm font-medium text-white transition hover:bg-slate-800"
+                  >
+                    Log in
+                  </button>
+                )}
               </div>
             ) : null} 
           </div>

@@ -1,7 +1,7 @@
     import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, CalendarClock, ClipboardList, Eye, Search, User } from 'lucide-react'
-import { loadPendingTasks } from '../utils/taskStorage.js'
+import { ArrowLeft, ClipboardList, Eye, Search } from 'lucide-react'
+    import api from '../api/axios'
 
 const statusStyles = {
   Pending: 'bg-amber-100 text-amber-700',
@@ -10,12 +10,60 @@ const statusStyles = {
   Overdue: 'bg-rose-100 text-rose-700',
 }
 
+const statusLabels = {
+  PENDING: 'Pending',
+  IN_PROGRESS: 'In Progress',
+  OVERDUE: 'Overdue',
+}
+
 export default function Pending() {
   const navigate = useNavigate()
   const [pendingTasks, setPendingTasks] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    setPendingTasks(loadPendingTasks())
+    let isMounted = true
+
+    const refreshTasks = async () => {
+      try {
+        const response = await api.get('/tasks')
+        const tasks = Array.isArray(response.data) ? response.data : []
+        const activeTasks = tasks
+          .filter((task) => ['PENDING', 'IN_PROGRESS', 'OVERDUE'].includes(String(task.status).toUpperCase()))
+          .map((task) => ({
+            ...task,
+            task: task.title || task.task || 'Untitled task',
+            clientName: task.client?.companyName || task.client?.name || task.client || 'No client',
+            assignedToName: task.assignedTo?.username || task.assignedTo?.firstName || task.assignedTo || 'Unassigned',
+            dueDate: task.dueDate || 'Not set',
+            statusKey: String(task.status).toUpperCase(),
+          }))
+
+        if (isMounted) {
+          setPendingTasks(activeTasks)
+          setError('')
+        }
+      } catch (requestError) {
+        if (isMounted) {
+          setError(requestError.response?.data?.message || 'Unable to load pending tasks.')
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    refreshTasks()
+    window.addEventListener('tasks-updated', refreshTasks)
+    window.addEventListener('storage', refreshTasks)
+
+    return () => {
+      isMounted = false
+      window.removeEventListener('tasks-updated', refreshTasks)
+      window.removeEventListener('storage', refreshTasks)
+    }
   }, [])
 
   return (
@@ -71,8 +119,16 @@ export default function Pending() {
             </div>
           </div>
 
-          <div className="mt-6 overflow-x-auto">
-            <table className="min-w-full border-separate border-spacing-y-3 text-left">
+          {error ? <p role="alert" className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</p> : null}
+          {isLoading ? <p className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-600">Loading pending tasks...</p> : null}
+
+          {!isLoading && !error && pendingTasks.length === 0 ? (
+            <p className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center text-sm text-emerald-700">
+              No pending tasks.
+            </p>
+          ) : !isLoading && !error ? (
+            <div className="mt-6 overflow-x-auto">
+              <table className="min-w-full border-separate border-spacing-y-3 text-left">
               <thead>
                 <tr className="text-sm text-slate-500">
                   <th className="px-4 py-3">Task ID</th>
@@ -84,25 +140,26 @@ export default function Pending() {
                   <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
-              <tbody>
-                {pendingTasks.map((task) => (
-                  <tr key={task.id} className="rounded-3xl bg-slate-50 shadow-sm">
-                    <td className="px-4 py-4 text-sm font-semibold text-slate-900">{task.id}</td>
-                    <td className="px-4 py-4 text-sm text-slate-700">{task.client}</td>
-                    <td className="px-4 py-4 text-sm text-slate-700">{task.task}</td>
-                    <td className="px-4 py-4 text-sm text-slate-700">{task.category}</td>
-                    <td className="px-4 py-4 text-sm text-slate-700">{task.dueDate}</td>
-                    <td className="px-4 py-4 text-sm text-slate-700">{task.assignedTo}</td>
-                    <td className="px-4 py-4">
-                      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[task.status]}`}>
-                        {task.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                <tbody>
+                  {pendingTasks.map((task) => (
+                    <tr key={task.id} className="rounded-3xl bg-slate-50 shadow-sm">
+                      <td className="px-4 py-4 text-sm font-semibold text-slate-900">{task.id}</td>
+                      <td className="px-4 py-4 text-sm text-slate-700">{task.clientName}</td>
+                      <td className="px-4 py-4 text-sm text-slate-700">{task.task}</td>
+                      <td className="px-4 py-4 text-sm text-slate-700">{task.category || 'General'}</td>
+                      <td className="px-4 py-4 text-sm text-slate-700">{task.dueDate}</td>
+                      <td className="px-4 py-4 text-sm text-slate-700">{task.assignedToName}</td>
+                      <td className="px-4 py-4">
+                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[statusLabels[task.statusKey]] || statusStyles.Pending}`}>
+                          {statusLabels[task.statusKey] || 'Pending'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </section>
       </div>
     </div>

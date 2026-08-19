@@ -1,41 +1,7 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, ArrowRight, Building2, CalendarClock, User } from 'lucide-react'
-
-const urgentMatters = [
-  {
-    id: 1,
-    client: 'ABC Corporation',
-    task: 'Submit BIR Form 1701',
-    category: 'BIR Files',
-    dueDate: 'Today',
-    assignedTo: 'John',
-    priority: 'Critical',
-    status: 'Pending',
-    clientId: 'CL-1024',
-  },
-  {
-    id: 2,
-    client: 'XYZ Trading',
-    task: 'Renew Business Permit',
-    category: 'City Hall Files',
-    dueDate: 'Tomorrow',
-    assignedTo: 'Maria',
-    priority: 'High',
-    status: 'In Progress',
-    clientId: 'CL-1025',
-  },
-  {
-    id: 3,
-    client: 'Prime Holdings',
-    task: 'Submit GIS',
-    category: 'SEC Files',
-    dueDate: 'Aug 15',
-    assignedTo: 'James',
-    priority: 'Medium',
-    status: 'Pending',
-    clientId: 'CL-1026',
-  },
-]
+import { loadTasks } from '../utils/taskStorage.js'
 
 const priorityStyles = {
   Critical: 'border-red-500 bg-red-50 text-red-700',
@@ -52,6 +18,22 @@ const statusStyles = {
 
 export default function Urgent({ compact = false }) {
   const navigate = useNavigate()
+  const [urgentMatters, setUrgentMatters] = useState(() => loadTasks().filter((task) => (
+    task.status !== 'Completed' && (task.priority === 'Critical' || task.priority === 'High')
+  )))
+
+  useEffect(() => {
+    const refreshUrgentTasks = () => setUrgentMatters(loadTasks().filter((task) => (
+      task.status !== 'Completed' && (task.priority === 'Critical' || task.priority === 'High')
+    )))
+    window.addEventListener('tasks-updated', refreshUrgentTasks)
+    window.addEventListener('storage', refreshUrgentTasks)
+
+    return () => {
+      window.removeEventListener('tasks-updated', refreshUrgentTasks)
+      window.removeEventListener('storage', refreshUrgentTasks)
+    }
+  }, [])
 
   const handleViewClick = (clientId) => {
     navigate(`/documents/${clientId}/bir/list`)
